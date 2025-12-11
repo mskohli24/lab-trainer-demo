@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lab Quality Trainer (Pre / QC / Post)</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:40px;background:#f7f7f7}
+.container{max-width:750px;margin:auto;background:#fff;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+h1{text-align:center;color:#c00000}
+nav{margin:10px 0;text-align:center}
+nav button{margin:0 5px;padding:6px 12px}
+.hide{display:none}
+.step{display:none}
+.active{display:block}
+.buttons{margin-top:25px;text-align:center}
+button{padding:8px 18px;margin:0 5px;font-size:15px;cursor:pointer}
+.correct{color:green;font-weight:bold}
+.wrong{color:#c00000;font-weight:bold}
+img{width:100%;max-width:400px;display:block;margin:15px auto;border:1px solid #ccc}
+#csv{display:none}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Lab Quality Trainer</h1>
+  <nav>
+    <button onclick="switchMod('pre')">Pre-Analytical</button>
+    <button onclick="switchMod('qc')">QC & Westgard</button>
+    <button onclick="switchMod('post')">Post-Analytical</button>
+  </nav>
+
+  <!--  CONTENT AREA  -->
+  <div id="cases"><div class="hide">Choose a module above</div></div>
+
+  <!--  TEMPLATES  -->
+  <script type="text/template" id="preTmpl">
+    <h2>Pre-Analytical Quality</h2>
+    <div id="preCases"></div>
+    <div class="buttons"><button onclick="preNext()">Next case →</button></div>
+    <div id="preRes"></div>
+  </script>
+
+  <script type="text/template" id="qcTmpl">
+    <h2>QC – Westgard Rules</h2>
+    <div id="qcQuest"></div>
+    <button onclick="checkQc()">Submit</button>
+    <p id="qcRes"></p>
+  </script>
+
+  <script type="text/template" id="postTmpl">
+    <h2>Post-Analytical Quality</h2>
+    <div id="postQuest"></div>
+    <button onclick="checkPost()">Submit</button>
+    <p id="postRes"></p>
+  </script>
+
+<!-- ===========  ALL JAVASCRIPT  =========== -->
+<script>
+/* ==========================================
+   PRE-ANALYTICAL MODULE
+   ========================================== */
+const preCases=[
+  {img:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEaAKADAREAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAH/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=",q:"Do you accept this specimen for K⁺ measurement?",o:["Accept","Reject","Accept with comment"],a:1,e:"Haemolysis releases intracellular K⁺ → falsely high. Reject."},
+  {img:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEaAKADAREAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAH/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=",q:"Clot detected in serum tube. Accept or reject?",o:["Accept","Reject","Accept with comment"],a:1,e:"Clot blocks probes → reject."},
+  {img:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEaAKADAREAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAH/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=",q:"Lavender-top sent for K⁺. Accept or reject?",o:["Accept","Reject","Accept with comment"],a:1,e:"EDTA chelates K⁺ → falsely low. Reject."},
+  {img:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEaAKADAREAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAH/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=",q:"Tube less than ¼ full (QNS). Accept or reject?",o:["Accept","Reject","Accept with comment"],a:1,e:"QNS dilutes additives → reject."},
+  {img:"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAEaAKADAREAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAH/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=",q:"Patient ID on tube does NOT match requisition. Accept or reject?",o:["Accept","Reject","Accept with comment"],a:1,e:"ID mismatch → reject."}
+];
+let preIdx=0, preResults=[];
+function renderPre(){
+  const c=preCases[preIdx];
+  let html=`<div class="step active"><img src="${c.img}" alt="case"><p><b>${c.q}</b></p>`;
+  c.o.forEach((opt,i)=>html+=`<label><input type="radio" name="preOpt" value="${i}"> ${opt}</label><br>`);
+  html+=`<br><button onclick="checkPre()">Submit</button><div id="preFeedback"></div></div>`;
+  document.getElementById('preCases').innerHTML=html;
+  document.getElementById('preRes').innerHTML='';
+}
+function checkPre(){
+  const c=preCases[preIdx], sel=document.querySelector('input[name="preOpt"]:checked');
+  if(!sel){alert('Choose an option');return;}
+  const ok=parseInt(sel.value)===c.a;
+  preResults.push({case:preIdx+1, correct:ok?1:0, time:Date.now()});
+  document.getElementById('preFeedback').innerHTML=`<span class="${ok?'correct':'wrong'}">${ok?'✔ Correct':'✖ Wrong'}</span> ${c.e}`;
+  document.querySelectorAll('input[name="preOpt"]').forEach(x=>x.disabled=true);
+}
+function preNext(){
+  preIdx=Math.min(preCases.length-1,preIdx+1);
+  if(preIdx===preCases.length-1) document.getElementById('preRes').innerHTML='<b>Pre-analytical module complete!</b>';
+  renderPre();
+}
+
+/* ==========================================
+   QC MODULE – single focused question
+   ========================================== */
+const qcQuest={
+  q:"Which Westgard rule is violated when <b>one control result</b> falls outside mean ± 3 SD?",
+  o:["1-2s","1-3s","R-4s","10×"],
+  a:1,
+  e:"1-3s: a single observation outside ± 3 SD."
+};
+function renderQC(){
+  let html=`<p>${qcQuest.q}</p>`;
+  qcQuest.o.forEach((opt,i)=>html+=`<label><input type="radio" name="qcOpt" value="${i}"> ${opt}</label><br>`);
+  html+=`<br><button onclick="checkQc()">Submit</button><div id="qcFeedback"></div>`;
+  document.getElementById('qcQuest').innerHTML=html;
+  document.getElementById('qcRes').innerHTML='';
+}
+function checkQc(){
+  const sel=document.querySelector('input[name="qcOpt"]:checked');
+  if(!sel){alert('Choose an option');return;}
+  const ok=parseInt(sel.value)===qcQuest.a;
+  document.getElementById('qcFeedback').innerHTML=`<span class="${ok?'correct':'wrong'}">${ok?'✔ Correct':'✖ Wrong'}</span> ${qcQuest.e}`;
+  document.querySelectorAll('input[name="qcOpt"]').forEach(x=>x.disabled=true);
+}
+
+/* ==========================================
+   POST-ANALYTICAL MODULE – 5 scenarios
+   ========================================== */
+const postCases=[
+  {q:"Hb = 74 g/L (yesterday 142 g/L). What do you do <u>first</u>?",o:["Release result","Call clinician immediately","Check specimen integrity"],a:2,e:"Large delta → first check specimen (short-draw, dilution)."},
+  {q:"K⁺ = 6.8 mmol/L (critical limit 6.5). No previous result. First action?",o:["Release and phone within 30 min","Release with comment","Wait for repeat"],a:0,e:"Critical value → release AND phone clinician ≤ 30 min (ISO 15189)."},
+  {q:"Glucose = 1.9 mmol/L, instrument flag ‘below linearity’. Auto-verify?",o:["Yes – save time","No – requires dilution and repeat","No – must repeat in duplicate"],a:1,e:"Below linearity → dilution + repeat; cannot auto-verify."},
+  {q:"Comment field truncated at 40 characters in LIS print-out. Action?",o:["Ignore – result ok","Shorten comment manually","Open ticket with IT"],a:2,e:"Truncation = IT/LIS bug → open ticket to fix field length."},
+  {q:"HbA1c = 48 mmol/mol, but units printed as ‘%’ (should be mmol/mol). Action?",o:["Release – value identical","Suppress and correct units","Add manual comment"],a:1,e:"Wrong units → suppress result, correct master data, re-issue."}
+];
+let postIdx=0, postResults=[];
+function renderPost(){
+  const c=postCases[postIdx];
+  let html=`<p><b>Case ${postIdx+1}/5:</b> ${c.q}</p>`;
+  c.o.forEach((opt,i)=>html+=`<label><input type="radio" name="postOpt" value="${i}"> ${opt}</label><br>`);
+  html+=`<br><button onclick="checkPost()">Submit</button><div id="postFeedback"></div>`;
+  document.getElementById('postQuest').innerHTML=html;
+  document.getElementById('postRes').innerHTML='';
+}
+function checkPost(){
+  const c=postCases[postIdx], sel=document.querySelector('input[name="postOpt"]:checked');
+  if(!sel){alert('Choose an option');return;}
+  const ok=parseInt(sel.value)===c.a;
+  postResults.push({case:postIdx+1, correct:ok?1:0, time:Date.now()});
+  document.getElementById('postFeedback').innerHTML=`<span class="${ok?'correct':'wrong'}">${ok?'✔ Correct':'✖ Wrong'}</span> ${c.e}`;
+  document.querySelectorAll('input[name="postOpt"]').forEach(x=>x.disabled=true);
+  // auto-advance after 1.5 s
+  setTimeout(()=>{
+    postIdx=Math.min(postCases.length-1,postIdx+1);
+    if(postIdx===postCases.length-1) document.getElementById('postRes').innerHTML='<b>Post-analytical module complete!</b>';
+    renderPost();
+  },1500);
+}
+
+/* ==========================================
+   MODULE SWITCHER
+   ========================================== */
+function switchMod(mod){
+  const content={
+    pre:document.getElementById('preTmpl').innerHTML,
+    qc:document.getElementById('qcTmpl').innerHTML,
+    post:document.getElementById('postTmpl').innerHTML
+  };
+  document.getElementById('cases').innerHTML=content[mod];
+  if(mod==='pre') renderPre();
+  if(mod==='qc') renderQC();
+  if(mod==='post') renderPost();
+}
+/* ===========  auto-open first module  =========== */
+window.onload = function () { switchMod('pre'); };
+</script>
+</body>
+</html>
